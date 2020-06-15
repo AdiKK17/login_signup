@@ -5,6 +5,7 @@ import 'package:loginsignup/home_page.dart';
 
 import 'package:provider/provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_login/flutter_facebook_login.dart';
 import 'package:http/http.dart' as http;
 
 import 'auth_provider.dart';
@@ -24,7 +25,7 @@ class AuthenticationPage extends StatefulWidget {
 }
 
 class _AuthenticationPage extends State<AuthenticationPage> {
-  var _isLoading = false;
+  bool _isLoading = false;
   AuthMode _authMode = AuthMode.Login;
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _passwordTextController = TextEditingController();
@@ -47,13 +48,13 @@ class _AuthenticationPage extends State<AuthenticationPage> {
       setState(() {
         _currentUser = account;
         print(account.displayName);
-        _shift(account.displayName);
+        _shift(account.displayName,account.email);
       });
     });
   }
 
-  _shift(name){
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => HomePage(name)));
+  _shift(name,email){
+    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => HomePage(name,email)));
   }
 
 
@@ -63,6 +64,38 @@ class _AuthenticationPage extends State<AuthenticationPage> {
     } catch (error) {
       print(error);
     }
+  }
+
+  void initiateFacebookLogin() async {
+    var facebookLogin = FacebookLogin();
+    var facebookLoginResult =
+    await facebookLogin.logIn(['email']);
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    switch (facebookLoginResult.status) {
+      case FacebookLoginStatus.error:
+        print("Error");
+        break;
+      case FacebookLoginStatus.cancelledByUser:
+        print("CancelledByUser");
+        break;
+      case FacebookLoginStatus.loggedIn:
+        print("LoggedIn");
+        var graphResponse = await http.get(
+            'https://graph.facebook.com/v2.12/me?fields=name,first_name,last_name,email&access_token=${facebookLoginResult
+                .accessToken.token}');
+
+        var profile = json.decode(graphResponse.body);
+        print(profile.toString());
+        _shift(profile["name"], profile["email"]);
+        break;
+    }
+    setState(() {
+      _isLoading = false;
+    });
   }
 
 
@@ -275,22 +308,65 @@ class _AuthenticationPage extends State<AuthenticationPage> {
                 SizedBox(
                   height: 20,
                 ),
-                Row(
+                _isLoading ? Container() : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    RaisedButton.icon(
-                        onPressed: () {
-                          _handleSignIn();
-                        },
-                        icon: Icon(Icons.mail),
-                        label: Text("Gmail")),
-                    SizedBox(
-                      width: 30,
+                  OutlineButton(
+                  splashColor: Colors.grey,
+                  onPressed: () {
+                    _handleSignIn();
+                  },
+                  highlightElevation: 0,
+                  borderSide: BorderSide(color: Colors.grey),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Image(image: AssetImage("assets/google_logo.png"), height: 20.0),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 10),
+                          child: Text(
+                            'Sign in with Google',
+                            style: TextStyle(
+                              color: Colors.grey,
+                            ),
+                          ),
+                        )
+                      ],
                     ),
-                    RaisedButton.icon(
-                      onPressed: () {},
-                      icon: Icon(Icons.book),
-                      label: Text("Facebook"),
+                  ),
+                ),
+                    SizedBox(
+                      width: 10,
+                    ),
+                    OutlineButton(
+                      splashColor: Colors.grey,
+                      onPressed: () {
+                        initiateFacebookLogin();
+                      },
+                      highlightElevation: 0,
+                      borderSide: BorderSide(color: Colors.grey),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Image(image: AssetImage("assets/facebook_logo.png"), height: 20.0),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 10),
+                              child: Text(
+                                'Sign in with facebook',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            )
+                          ],
+                        ),
+                      ),
                     ),
                   ],
                 ),

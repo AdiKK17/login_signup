@@ -9,17 +9,9 @@ import 'package:http/http.dart' as http;
 import 'auth_page.dart';
 
 class AuthProvider extends ChangeNotifier {
-  String _token;
   String _userId;
   String _email;
   String _name;
-
-  String _sessionId;
-  String _openViduToken;
-  String _sessionRole;
-
-  DateTime _expiryDate;
-  Timer _authTimer;
 
   final ngrokUrl = "https://join-chat.herokuapp.com";
 
@@ -28,16 +20,6 @@ class AuthProvider extends ChangeNotifier {
   }
   String get name {
     return _name;
-  }
-
-  String get sessionId {
-    return _sessionId;
-  }
-  String get openViduToken {
-    return _openViduToken;
-  }
-  String get sessionRole{
-    return _sessionRole;
   }
 
   void _showErrorDialog(BuildContext context, String message) {
@@ -56,27 +38,7 @@ class AuthProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> setVariables() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    if(!prefs.containsKey("isLogged")){
-      return;
-    }
 
-    final expiryDate = DateTime.parse(prefs.getString("expiryDate"));
-    if(expiryDate != null) {
-      if (expiryDate.isBefore(DateTime.now())) {
-        logout();
-        return;
-      }
-    }
-
-    _expiryDate = expiryDate;
-    _token = prefs.getString("token");
-    _userId = prefs.getString("userId");
-    _email = prefs.getString("email");
-    _name = prefs.getString("name");
-    autoLogout();
-  }
 
   Future<String> login(
       BuildContext context, String email, String password) async {
@@ -101,20 +63,16 @@ class AuthProvider extends ChangeNotifier {
       return "no";
     }
 
-    _token = responseData["token"];
+
     _name = responseData["name"];
     _email = responseData["email"];
-    _expiryDate = DateTime.now().add(Duration(hours: 12));
 
     final prefs = await SharedPreferences.getInstance();
 
-    prefs.setString("token", _token);
     prefs.setString("userId", _userId);
     prefs.setString("name", _name);
     prefs.setString("email", _email);
-    prefs.setString("expiryDate", _expiryDate.toIso8601String());
     prefs.setBool("isLogged", true);
-    autoLogout();
     return "yes";
   }
 
@@ -156,20 +114,15 @@ class AuthProvider extends ChangeNotifier {
       return false;
     }
 
-    _token = responseData["token"];
     _userId = responseData["userId"];
     _name = responseData["name"];
     _email = responseData["email"];
-    _expiryDate = DateTime.now().add(Duration(hours: 12));
 
     final prefs = await SharedPreferences.getInstance();
-    prefs.setString("token", _token);
     prefs.setString("userId", _userId);
     prefs.setString("name", _name);
     prefs.setString("email", _email);
-    prefs.setString("expiryDate", _expiryDate.toIso8601String());
     prefs.setBool("isLogged", true);
-    autoLogout();
     return true;
   }
 
@@ -181,64 +134,11 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> logout() async {
     _userId = null;
-    _token = null;
     _email = null;
-    _token = null;
 
     final prefs = await SharedPreferences.getInstance();
     prefs.clear();
     return true;
-  }
-
-  void autoLogout(){
-    if (_authTimer != null) {
-      _authTimer.cancel();
-    }
-    final expiryTime = _expiryDate.difference(DateTime.now()).inSeconds;
-    _authTimer = Timer(Duration(seconds: expiryTime), logout);
-  }
-
-  Future<bool> createSession() async {
-    final response = await http.get(
-      "$ngrokUrl/user/getSession",
-      headers: {
-        "Authorization": "Basic $_token",
-        "Content-Type": "application/json"
-      },
-    );
-
-    print(response.statusCode);
-    if(response.statusCode == 400 || response.statusCode == 409){
-      return false;
-    }
-    final responseData = json.decode(response.body);
-    _sessionId = responseData["id"];
-    notifyListeners();
-    return true;
-  }
-
-  Future<int> createToken(int num,String session) async {
-    final response = await http.post(
-      "$ngrokUrl/user/getToken",
-      headers: {
-        "Authorization": "Basic $_token",
-        "Content-Type": "application/json"
-      },
-      body: json.encode({
-        "sessionName": session,
-        "role": num == 0 ? "MODERATOR" : "PUBLISHER"
-      }),
-    );
-
-    if(response.statusCode == 400 || response.statusCode == 404){
-        return response.statusCode;
-    }
-    final responseData = json.decode(response.body);
-    print(responseData["role"]);
-    _sessionId = session;
-    _openViduToken = responseData["token"];
-    _sessionRole = responseData["role"];
-    return response.statusCode;
   }
 
 }
