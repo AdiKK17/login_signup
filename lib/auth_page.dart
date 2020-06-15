@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:loginsignup/home_page.dart';
 
 import 'package:provider/provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -9,6 +8,8 @@ import 'package:flutter_facebook_login/flutter_facebook_login.dart';
 import 'package:http/http.dart' as http;
 
 import 'auth_provider.dart';
+import 'home_page.dart';
+import 'otp_page.dart';
 
 enum AuthMode { Login, SignUp }
 
@@ -33,8 +34,7 @@ class _AuthenticationPage extends State<AuthenticationPage> {
   GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: <String>[
       'email',
-    'profile',
-//      'https://www.googleapis.com/auth/contacts.readonly',
+      'profile',
     ],
   );
   GoogleSignInAccount _currentUser;
@@ -48,15 +48,15 @@ class _AuthenticationPage extends State<AuthenticationPage> {
       setState(() {
         _currentUser = account;
         print(account.displayName);
-        _shift(account.displayName,account.email);
+        _shift(account.displayName, account.email);
       });
     });
   }
 
-  _shift(name,email){
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => HomePage(name,email)));
+  _shift(name, email) {
+    Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => HomePage(name, email)));
   }
-
 
   Future<void> _handleSignIn() async {
     try {
@@ -68,8 +68,7 @@ class _AuthenticationPage extends State<AuthenticationPage> {
 
   void initiateFacebookLogin() async {
     var facebookLogin = FacebookLogin();
-    var facebookLoginResult =
-    await facebookLogin.logIn(['email']);
+    var facebookLoginResult = await facebookLogin.logIn(['email']);
 
     setState(() {
       _isLoading = true;
@@ -85,8 +84,7 @@ class _AuthenticationPage extends State<AuthenticationPage> {
       case FacebookLoginStatus.loggedIn:
         print("LoggedIn");
         var graphResponse = await http.get(
-            'https://graph.facebook.com/v2.12/me?fields=name,first_name,last_name,email&access_token=${facebookLoginResult
-                .accessToken.token}');
+            'https://graph.facebook.com/v2.12/me?fields=name,first_name,last_name,email&access_token=${facebookLoginResult.accessToken.token}');
 
         var profile = json.decode(graphResponse.body);
         print(profile.toString());
@@ -97,7 +95,6 @@ class _AuthenticationPage extends State<AuthenticationPage> {
       _isLoading = false;
     });
   }
-
 
   final Map<String, dynamic> _formData = {
     "email": null,
@@ -180,24 +177,42 @@ class _AuthenticationPage extends State<AuthenticationPage> {
       _isLoading = true;
     });
 
-//    if (_authMode == AuthMode.Login) {
-//       Provider.of<AuthProvider>(context,listen: false).login(context,_formData["email"], _formData["password"]).then((value) {
-//         setState(() {_isLoading = false;});
-//        if(value == "yes"){
-//          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => HomePage()));
-//        } else if(value == "maybe") {
-//          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => OtpVerificationPage()));
-//        }
-//       });
-//    } else {
-//      Provider.of<AuthProvider>(context, listen: false)
-//          .signUp(context,_formData["username"],_formData["email"], _formData["password"]).then((value) {
-//        setState(() {_isLoading = false;});
-//        if(value){
-//          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => OtpVerificationPage()));
-//        }
-//      });
-//    }
+    if (_authMode == AuthMode.Login) {
+      Provider.of<AuthProvider>(context, listen: false)
+          .login(context, _formData["email"], _formData["password"])
+          .then((value) {
+        setState(() {
+          _isLoading = false;
+        });
+        if (value == "yes") {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => HomePage(
+                  Provider.of<AuthProvider>(context, listen: false).name,
+                  Provider.of<AuthProvider>(context, listen: false).email),
+            ),
+          );
+        }
+      });
+    } else {
+      Provider.of<AuthProvider>(context, listen: false)
+          .signUp(context, _formData["username"], _formData["email"],
+              _formData["password"])
+          .then((value) {
+        setState(() {
+          _isLoading = false;
+        });
+        if (value) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => HomePage(
+                  Provider.of<AuthProvider>(context).name,
+                  Provider.of<AuthProvider>(context).email),
+            ),
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -272,7 +287,13 @@ class _AuthenticationPage extends State<AuthenticationPage> {
                             "Forget password?",
                             style: TextStyle(color: Colors.blue),
                           ),
-                          onPressed: () {},
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => OtpVerificationPage(),
+                              ),
+                            );
+                          },
                         ),
                       )
                     : Container(),
@@ -308,68 +329,76 @@ class _AuthenticationPage extends State<AuthenticationPage> {
                 SizedBox(
                   height: 20,
                 ),
-                _isLoading ? Container() : Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                  OutlineButton(
-                  splashColor: Colors.grey,
-                  onPressed: () {
-                    _handleSignIn();
-                  },
-                  highlightElevation: 0,
-                  borderSide: BorderSide(color: Colors.grey),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        Image(image: AssetImage("assets/google_logo.png"), height: 20.0),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 10),
-                          child: Text(
-                            'Sign in with Google',
-                            style: TextStyle(
-                              color: Colors.grey,
+                _isLoading
+                    ? Container()
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          OutlineButton(
+                            splashColor: Colors.grey,
+                            onPressed: () {
+                              _handleSignIn();
+                            },
+                            highlightElevation: 0,
+                            borderSide: BorderSide(color: Colors.grey),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: <Widget>[
+                                  Image(
+                                      image:
+                                          AssetImage("assets/google_logo.png"),
+                                      height: 20.0),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 10),
+                                    child: Text(
+                                      'Sign in with Google',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  )
+                                ],
+                              ),
                             ),
                           ),
-                        )
-                      ],
-                    ),
-                  ),
-                ),
-                    SizedBox(
-                      width: 10,
-                    ),
-                    OutlineButton(
-                      splashColor: Colors.grey,
-                      onPressed: () {
-                        initiateFacebookLogin();
-                      },
-                      highlightElevation: 0,
-                      borderSide: BorderSide(color: Colors.grey),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: <Widget>[
-                            Image(image: AssetImage("assets/facebook_logo.png"), height: 20.0),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 10),
-                              child: Text(
-                                'Sign in with facebook',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                ),
+                          SizedBox(
+                            width: 10,
+                          ),
+                          OutlineButton(
+                            splashColor: Colors.grey,
+                            onPressed: () {
+                              initiateFacebookLogin();
+                            },
+                            highlightElevation: 0,
+                            borderSide: BorderSide(color: Colors.grey),
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: <Widget>[
+                                  Image(
+                                      image: AssetImage(
+                                          "assets/facebook_logo.png"),
+                                      height: 20.0),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 10),
+                                    child: Text(
+                                      'Sign in with facebook',
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  )
+                                ],
                               ),
-                            )
-                          ],
-                        ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
                 SizedBox(
                   height: 30,
                 ),

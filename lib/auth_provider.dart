@@ -3,17 +3,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
-
-import 'auth_page.dart';
 
 class AuthProvider extends ChangeNotifier {
   String _userId;
   String _email;
   String _name;
 
-  final ngrokUrl = "https://join-chat.herokuapp.com";
+  final ngrokUrl = "https://silogin.herokuapp.com";
 
   String get email {
     return _email;
@@ -55,24 +52,13 @@ class AuthProvider extends ChangeNotifier {
     print(responseData);
 
     if (responseData["error"] != null) {
-      if (responseData["error"] == 'User is not verified') {
-        _userId = responseData["userId"];
-        return "maybe";
-      }
       _showErrorDialog(context, responseData["error"]);
       return "no";
     }
 
-
     _name = responseData["name"];
     _email = responseData["email"];
 
-    final prefs = await SharedPreferences.getInstance();
-
-    prefs.setString("userId", _userId);
-    prefs.setString("name", _name);
-    prefs.setString("email", _email);
-    prefs.setBool("isLogged", true);
     return "yes";
   }
 
@@ -90,12 +76,15 @@ class AuthProvider extends ChangeNotifier {
 
     final responseData = json.decode(response.body);
     print(responseData);
-    _userId = responseData["userId"];
 
     if (responseData["error"] != null) {
       _showErrorDialog(context, responseData["error"]);
       return false;
     }
+    _userId = responseData["userId"];
+    _name = responseData["name"];
+    _email = responseData["email"];
+
     return true;
   }
 
@@ -118,27 +107,34 @@ class AuthProvider extends ChangeNotifier {
     _name = responseData["name"];
     _email = responseData["email"];
 
-    final prefs = await SharedPreferences.getInstance();
-    prefs.setString("userId", _userId);
-    prefs.setString("name", _name);
-    prefs.setString("email", _email);
-    prefs.setBool("isLogged", true);
     return true;
   }
 
-  Future<void> resendOTP() async {
-    final url = "$ngrokUrl/user/otpResend/$_userId";
-    final response = await http.get(url);
+  Future<void> resendOTP(context,email) async {
+    final url = "$ngrokUrl/user/forgotPassword";
+    final response = await http.post(url,
+        body: json.encode({"email": email}),
+        headers: {'Content-Type': 'application/json'});
+    final responseData = json.decode(response.body);
     print(json.decode(response.body));
+    if (responseData["error"] != null) {
+      _showErrorDialog(context, responseData["error"]);
+    }
+    _userId = responseData["userId"];
   }
 
-  Future<bool> logout() async {
-    _userId = null;
-    _email = null;
-
-    final prefs = await SharedPreferences.getInstance();
-    prefs.clear();
-    return true;
+  Future<void> resetPassword(context,password) async {
+    final url = "$ngrokUrl/user/resetPassword";
+    final response = await http.post(url,
+        body: json.encode({"email": _email,"password": password}),
+        headers: {'Content-Type': 'application/json'});
+    final responseData = json.decode(response.body);
+    print(json.decode(response.body));
+    if (responseData["error"] != null) {
+      _showErrorDialog(context, responseData["error"]);
+    }
+    _userId = responseData["userId"];
   }
+
 
 }
